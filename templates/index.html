@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Filtering System</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            color: white;
+            overflow-y: auto;
+            background-color: #000; /* Fallback for non-video support */
+            padding: 20px 0;
+        }
+
+        .bg-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%; 
+            min-height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            z-index: 1;
+            margin-top: 20px;
+        }
+
+        .search-container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 40px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 600px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            margin-bottom: 30px;
+        }
+
+        .results-container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            background-color: transparent;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+
+        .resume-card {
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            color: #333;
+        }
+
+        .resume-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            color: #4e54c8;
+        }
+
+        .loading-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100px;
+            margin-top: 20px;
+        }
+
+        .loading-animation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        h2 {
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-primary {
+            background-color: #4e54c8;
+            border-color: #4e54c8;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #3f4499;
+            border-color: #3f4499;
+            transform: scale(1.05);
+        }
+
+        .form-control {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .form-control:focus {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-color: #4e54c8;
+            box-shadow: 0 0 0 0.25rem rgba(78, 84, 200, 0.25);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Video -->
+    <video autoplay muted loop class="bg-video">
+        <source src="{{ url_for('static', filename='Voice-chat.mp4') }}" type="video/mp4">
+        Your browser does not support HTML5 video.
+    </video>
+
+    <!-- Main container for the entire content -->
+    <div class="main-container">
+        <!-- Container for the resume filtering form -->
+        <div class="search-container">
+            <h2 class="mb-4 text-center">Resume Filtering System</h2>
+            <form id="searchForm">
+                <div class="mb-3">
+                    <label for="jobDescription" class="form-label">Job Description</label>
+                    <textarea class="form-control" id="jobDescription" rows="3" placeholder="Enter job description" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="workExperience" class="form-label">Required Work Experience (in years)</label>
+                    <input type="number" class="form-control" id="workExperience" placeholder="Enter required experience" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100" id="getResumesBtn">Get Resumes</button>
+            </form>
+        </div>
+
+        <!-- Container for loading animation -->
+        <div class="loading-container" id="loadingContainer">
+            <!-- Loading animation will be inserted here -->
+        </div>
+
+        <!-- Container to display filtered resumes -->
+        <div class="results-container" id="resultsContainer">
+            <!-- Filtered resumes will be displayed here -->
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+             e.preventDefault();
+             const jobDescription = document.getElementById('jobDescription').value;
+             const workExperience = document.getElementById('workExperience').value;
+     
+             // Clear previous results
+             document.getElementById('resultsContainer').innerHTML = '';
+             document.getElementById('loadingContainer').innerHTML = '';
+     
+             // Show loading spinner
+             const spinner = document.createElement('div');
+             spinner.className = 'spinner-border text-primary';
+             spinner.role = 'status';
+             spinner.innerHTML = '<span class="visually-hidden">Loading...</span>';
+             document.getElementById('loadingContainer').appendChild(spinner);
+     
+             // Fetch resumes from backend
+             fetch('/api/get_resumes', {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                 },
+                 body: JSON.stringify({
+                     job_description: jobDescription,
+                     work_experience: workExperience
+                 })
+             })
+             .then(response => response.json())
+             .then(data => {
+                 // Remove spinner
+                 document.getElementById('loadingContainer').innerHTML = '';
+                 
+                 if (data.resumes && data.resumes.length > 0) {
+                     data.resumes.forEach(resume => {
+                         const card = document.createElement('div');
+                         card.className = 'card resume-card';
+                         card.innerHTML = `
+                             <div class="card-body">
+                                 <h5 class="card-title">${resume.name}</h5>
+                                 <p class="card-text"><strong>Rank:</strong> ${resume.rank}</p>
+                                 <p class="card-text"><strong>Email:</strong> ${resume.email}</p>
+                                 <p class="card-text"><strong>Experience:</strong> ${resume.experience} years</p>
+                                 <p class="card-text"><strong>Score:</strong> ${resume.score.toFixed(2)}</p>
+                                 <a href="${resume.resume_link}" class="btn btn-primary" target="_blank">View Resume</a>
+                             </div>
+                         `;
+                         document.getElementById('resultsContainer').appendChild(card);
+                     });
+                 } else {
+                     const noResults = document.createElement('div');
+                     noResults.className = 'alert alert-warning';
+                     noResults.innerText = 'No resumes found matching the criteria.';
+                     document.getElementById('resultsContainer').appendChild(noResults);
+                 }
+             })
+             .catch(error => {
+                 console.error('Error fetching resumes:', error);
+                 // Remove spinner
+                 document.getElementById('loadingContainer').innerHTML = '';
+                 const errorAlert = document.createElement('div');
+                 errorAlert.className = 'alert alert-danger';
+                 errorAlert.innerText = 'An error occurred while fetching resumes. Please try again later.';
+                 document.getElementById('resultsContainer').appendChild(errorAlert);
+             });
+         });
+     </script>
+</body>
+</html>
